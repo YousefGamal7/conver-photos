@@ -1,0 +1,648 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>معمل التحويل — حوّل صورك</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;900&family=IBM+Plex+Sans+Arabic:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<style>
+  :root{
+    --bg:#1b1815;
+    --paper:#f2ece1;
+    --amber:#e2a541;
+    --red:#b3402f;
+    --line:#3a342c;
+    --muted:#a99d8c;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:
+      radial-gradient(circle at 15% 10%, rgba(226,165,65,0.06), transparent 40%),
+      radial-gradient(circle at 85% 90%, rgba(179,64,47,0.08), transparent 45%),
+      var(--bg);
+    color:var(--paper);
+    font-family:'IBM Plex Sans Arabic', sans-serif;
+    min-height:100vh;
+    padding:32px 20px 80px;
+  }
+  .wrap{max-width:880px;margin:0 auto;}
+
+  header{margin-bottom:36px;}
+  .eyebrow{
+    display:flex;align-items:center;gap:10px;
+    color:var(--amber);
+    font-size:13px;letter-spacing:.5px;
+    margin-bottom:10px;
+  }
+  .eyebrow .dot{width:7px;height:7px;border-radius:50%;background:var(--red);box-shadow:0 0 8px var(--red);}
+  h1{
+    font-family:'Tajawal',sans-serif;
+    font-weight:900;
+    font-size:clamp(30px,5vw,46px);
+    margin:0 0 10px;
+    line-height:1.15;
+  }
+  h1 span{color:var(--amber);}
+  .sub{color:var(--muted);font-size:15.5px;max-width:60ch;line-height:1.8;}
+
+  /* format switch */
+  .panel{
+    background:rgba(255,255,255,0.02);
+    border:1px solid var(--line);
+    border-radius:18px;
+    padding:22px;
+    margin-bottom:22px;
+  }
+  .panel-title{font-family:'Tajawal',sans-serif;font-weight:700;font-size:15px;color:var(--muted);margin:0 0 14px;}
+  .fmt-row{display:flex;gap:12px;}
+  .fmt-btn{
+    flex:1;
+    background:transparent;
+    border:1.5px solid var(--line);
+    color:var(--paper);
+    border-radius:12px;
+    padding:16px 12px;
+    font-family:'Tajawal',sans-serif;
+    font-weight:700;
+    font-size:16px;
+    cursor:pointer;
+    transition:all .18s ease;
+    display:flex;flex-direction:column;align-items:center;gap:4px;
+  }
+  .fmt-btn small{font-family:'IBM Plex Sans Arabic';font-weight:400;color:var(--muted);font-size:12px;}
+  .fmt-btn.active{
+    border-color:var(--amber);
+    background:rgba(226,165,65,0.1);
+    box-shadow:0 0 0 1px var(--amber) inset;
+  }
+  .fmt-btn.active small{color:var(--amber);}
+
+  .quality-row{display:flex;align-items:center;gap:14px;margin-top:16px;opacity:0;max-height:0;overflow:hidden;transition:all .25s ease;}
+  .quality-row.show{opacity:1;max-height:60px;margin-top:16px;}
+  .quality-row input[type=range]{flex:1;accent-color:var(--amber);}
+  .quality-row .qval{font-variant-numeric:tabular-nums;color:var(--amber);font-weight:600;min-width:42px;text-align:center;}
+
+  /* dropzone */
+  .dropzone{
+    border:2px dashed var(--line);
+    border-radius:18px;
+    padding:46px 20px;
+    text-align:center;
+    cursor:pointer;
+    transition:all .2s ease;
+    position:relative;
+  }
+  .dropzone:hover, .dropzone.drag{
+    border-color:var(--amber);
+    background:rgba(226,165,65,0.05);
+  }
+  .dropzone .icon{
+    width:56px;height:56px;margin:0 auto 16px;
+    border:1.5px solid var(--amber);
+    border-radius:50%;
+    display:flex;align-items:center;justify-content:center;
+  }
+  .dropzone h3{font-family:'Tajawal',sans-serif;font-size:19px;margin:0 0 6px;}
+  .dropzone p{color:var(--muted);font-size:14px;margin:0;}
+  .dropzone input{display:none;}
+
+  /* file strip */
+  .strip-head{
+    display:flex;justify-content:space-between;align-items:center;
+    margin:30px 0 14px;
+  }
+  .strip-head h2{font-family:'Tajawal',sans-serif;font-size:18px;margin:0;}
+  .strip-head .count{color:var(--muted);font-size:14px;}
+
+  .actions{display:flex;gap:10px;margin-bottom:18px;flex-wrap:wrap;}
+  .btn{
+    font-family:'Tajawal',sans-serif;font-weight:700;font-size:14.5px;
+    border-radius:11px;padding:12px 20px;cursor:pointer;border:none;
+    transition:transform .12s ease, opacity .12s ease;
+  }
+  .btn:active{transform:scale(.97);}
+  .btn-primary{background:var(--amber);color:#1b1815;}
+  .btn-ghost{background:transparent;color:var(--paper);border:1.5px solid var(--line);}
+  .btn:disabled{opacity:.4;cursor:not-allowed;}
+
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:14px;}
+  .card{
+    background:rgba(255,255,255,0.03);
+    border:1px solid var(--line);
+    border-radius:14px;
+    overflow:hidden;
+    position:relative;
+  }
+  .thumb{width:100%;aspect-ratio:1;object-fit:cover;display:block;
+    background-image:
+      linear-gradient(45deg, #2a251f 25%, transparent 25%),
+      linear-gradient(-45deg, #2a251f 25%, transparent 25%),
+      linear-gradient(45deg, transparent 75%, #2a251f 75%),
+      linear-gradient(-45deg, transparent 75%, #2a251f 75%);
+    background-size:16px 16px;
+    background-position:0 0, 0 8px, 8px -8px, -8px 0px;
+    background-color:#1f1c18;
+  }
+  .meta{padding:10px 12px;}
+  .fname{font-size:12.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-bottom:4px;}
+  .fstatus{font-size:11.5px;color:var(--muted);display:flex;align-items:center;gap:6px;}
+  .fstatus.done{color:var(--amber);}
+  .badge{
+    position:absolute;top:8px;left:8px;
+    background:rgba(27,24,21,0.8);
+    color:var(--amber);
+    font-size:10.5px;font-weight:600;
+    padding:3px 8px;border-radius:20px;
+    border:1px solid var(--amber);
+  }
+  .dl-single{
+    display:block;width:100%;
+    background:rgba(226,165,65,0.12);
+    color:var(--amber);
+    text-align:center;
+    padding:8px 0;
+    font-size:12.5px;font-weight:600;
+    text-decoration:none;
+    border-top:1px solid var(--line);
+  }
+  .spinner{
+    width:12px;height:12px;border-radius:50%;
+    border:2px solid var(--line);border-top-color:var(--amber);
+    animation:spin .7s linear infinite;
+  }
+  @keyframes spin{to{transform:rotate(360deg);}}
+
+  footer{text-align:center;color:var(--muted);font-size:12.5px;margin-top:50px;}
+
+  #sizeRow.fmt-row{flex-wrap:wrap;}
+  #sizeRow .fmt-btn{flex:1 1 130px;padding:12px 8px;}
+
+  @media(max-width:520px){
+    .fmt-row:not(#sizeRow){flex-direction:column;}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="eyebrow"><span class="dot"></span> تحويل صور — محليًا في متصفحك</div>
+    <h1>حوّل صورك لـ <span>PNG</span> أو <span>JPG</span> دفعة واحدة</h1>
+    <p class="sub">ارفع أي عدد من الصور مرة واحدة، اختار الصيغة اللي عايزها، والموقع يحولهم كلهم ويسيبك تنزلهم واحدة واحدة أو في ملف مضغوط واحد. مفيش رفع لسيرفر — كل حاجة بتتم على جهازك.</p>
+  </header>
+
+  <div class="panel">
+    <p class="panel-title">اختار الصيغة اللي عايز تحول ليها</p>
+    <div class="fmt-row">
+      <button class="fmt-btn active" data-fmt="image/png" id="btnPng">
+        PNG
+        <small>خلفية شفافة، جودة أعلى</small>
+      </button>
+      <button class="fmt-btn" data-fmt="image/jpeg" id="btnJpg">
+        JPG
+        <small>حجم أصغر، مساحة أقل</small>
+      </button>
+    </div>
+    <div class="quality-row" id="qualityRow">
+      <span style="font-size:13px;color:var(--muted);">الجودة</span>
+      <input type="range" min="10" max="100" value="75" id="qualitySlider">
+      <span class="qval" id="qualityVal">75%</span>
+    </div>
+  </div>
+
+  <div class="panel">
+    <p class="panel-title">تقليل حجم الصورة (اختياري)</p>
+    <div class="fmt-row" id="sizeRow">
+      <button class="fmt-btn active" data-size="0">
+        المقاس الأصلي
+        <small>بدون تصغير</small>
+      </button>
+      <button class="fmt-btn" data-size="1920">
+        1920px
+        <small>مناسب للشاشات</small>
+      </button>
+      <button class="fmt-btn" data-size="1280">
+        1280px
+        <small>حجم أصغر</small>
+      </button>
+      <button class="fmt-btn" data-size="800">
+        800px
+        <small>لسوشيال ميديا</small>
+      </button>
+    </div>
+    <p style="font-size:12.5px;color:var(--muted);margin:14px 0 0;line-height:1.7;">
+      لأقل حجم ممكن: اختار JPG وقلل شريط الجودة، وقلل المقاس لو مش محتاج الصورة بدقتها الأصلية. PNG بيفضل حجمه أكبر لأنه بيحافظ على كل تفاصيل الصورة.
+    </p>
+  </div>
+
+  <div class="panel">
+    <label class="panel-title" style="display:flex;align-items:center;gap:10px;cursor:pointer;">
+      <input type="checkbox" id="capToggle" style="width:16px;height:16px;accent-color:var(--amber);">
+      حدد أقصى حجم لكل صورة بعد التحويل
+    </label>
+    <div class="quality-row" id="capRow">
+      <span style="font-size:13px;color:var(--muted);">الحد الأقصى</span>
+      <input type="range" min="0.5" max="20" step="0.5" value="5" id="capSlider">
+      <span class="qval" id="capVal">5 MB</span>
+    </div>
+    <p style="font-size:12.5px;color:var(--muted);margin:10px 0 0;line-height:1.7;">
+      الموقع هيقلل الجودة والمقاس تلقائي لأي صورة أكبر من الحد ده لحد ما توصل تحته. مع PNG بيتم التصغير عن طريق تقليل مقاس الصورة بس لأن PNG مالوش تحكم في الجودة.
+    </p>
+  </div>
+
+  <div class="panel">
+    <label class="panel-title" style="display:flex;align-items:center;gap:10px;cursor:pointer;">
+      <input type="checkbox" id="bgToggle" style="width:16px;height:16px;accent-color:var(--amber);">
+      شيل الخلفية (مناسب للوجوهات والصور بخلفية سادة)
+    </label>
+    <div class="quality-row" id="bgRow">
+      <span style="font-size:13px;color:var(--muted);">حساسية الإزالة</span>
+      <input type="range" min="5" max="90" value="30" id="bgSlider">
+      <span class="qval" id="bgVal">30</span>
+    </div>
+    <p style="font-size:12.5px;color:var(--muted);margin:10px 0 0;line-height:1.7;" id="bgNote">
+      الموقع بيحدد لون الخلفية تلقائي من زوايا الصورة ويشيله ويخليه شفاف. بيشتغل أحسن حاجة مع لوجوهات وخلفيات سادة أو متدرجة بسيطة. لازم الصيغة تبقى PNG عشان الشفافية تتحفظ، فهنحولها تلقائي.
+    </p>
+  </div>
+
+  <div class="dropzone" id="dropzone">
+    <div class="icon">↑</div>
+    <h3>اسحب الصور هنا أو اضغط للاختيار</h3>
+    <p>تقدر تحدد أكتر من صورة مرة واحدة (JPG, PNG, WEBP, GIF...)</p>
+    <input type="file" id="fileInput" accept="image/*" multiple>
+  </div>
+
+  <div id="stripSection" style="display:none;">
+    <div class="strip-head">
+      <h2>الصور</h2>
+      <span class="count" id="countLabel"></span>
+    </div>
+    <div class="actions">
+      <button class="btn btn-primary" id="downloadAllBtn" disabled>تنزيل الكل (ZIP)</button>
+      <button class="btn btn-ghost" id="clearBtn">مسح الكل</button>
+    </div>
+    <div class="grid" id="grid"></div>
+  </div>
+
+  <footer>الصور بتتحول جوا المتصفح بتاعك ومفيش أي حاجة بترفع لأي سيرفر.</footer>
+</div>
+
+<script>
+const state = {
+  format: 'image/png',
+  quality: 0.75,
+  maxSize: 0, // 0 = original size, otherwise max width/height in px
+  capEnabled: false,
+  capBytes: 5 * 1024 * 1024,
+  bgRemove: false,
+  bgTolerance: 30,
+  items: [] // {id, file, name, url, status, blob, outName}
+};
+
+const dropzone = document.getElementById('dropzone');
+const fileInput = document.getElementById('fileInput');
+const grid = document.getElementById('grid');
+const stripSection = document.getElementById('stripSection');
+const countLabel = document.getElementById('countLabel');
+const downloadAllBtn = document.getElementById('downloadAllBtn');
+const clearBtn = document.getElementById('clearBtn');
+const qualityRow = document.getElementById('qualityRow');
+const qualitySlider = document.getElementById('qualitySlider');
+const qualityVal = document.getElementById('qualityVal');
+const capToggle = document.getElementById('capToggle');
+const capRow = document.getElementById('capRow');
+const capSlider = document.getElementById('capSlider');
+const capVal = document.getElementById('capVal');
+
+capToggle.addEventListener('change', () => {
+  state.capEnabled = capToggle.checked;
+  capRow.classList.toggle('show', state.capEnabled);
+  if(state.items.length) reconvertAll();
+});
+capSlider.addEventListener('input', () => {
+  capVal.textContent = capSlider.value + ' MB';
+});
+capSlider.addEventListener('change', () => {
+  state.capBytes = parseFloat(capSlider.value) * 1024 * 1024;
+  if(state.capEnabled && state.items.length) reconvertAll();
+});
+
+const bgToggle = document.getElementById('bgToggle');
+const bgRow = document.getElementById('bgRow');
+const bgSlider = document.getElementById('bgSlider');
+const bgVal = document.getElementById('bgVal');
+const btnJpgEl = document.getElementById('btnJpg');
+
+bgToggle.addEventListener('change', () => {
+  state.bgRemove = bgToggle.checked;
+  bgRow.classList.toggle('show', state.bgRemove);
+  if(state.bgRemove){
+    setFormat('image/png');
+    btnJpgEl.disabled = true;
+    btnJpgEl.style.opacity = '0.4';
+    btnJpgEl.style.cursor = 'not-allowed';
+  } else {
+    btnJpgEl.disabled = false;
+    btnJpgEl.style.opacity = '';
+    btnJpgEl.style.cursor = '';
+  }
+  if(state.items.length) reconvertAll();
+});
+bgSlider.addEventListener('input', () => {
+  bgVal.textContent = bgSlider.value;
+});
+bgSlider.addEventListener('change', () => {
+  state.bgTolerance = parseInt(bgSlider.value, 10);
+  if(state.bgRemove && state.items.length) reconvertAll();
+});
+
+document.getElementById('btnPng').addEventListener('click', () => setFormat('image/png'));
+document.getElementById('btnJpg').addEventListener('click', () => setFormat('image/jpeg'));
+
+function setFormat(fmt){
+  state.format = fmt;
+  document.getElementById('btnPng').classList.toggle('active', fmt==='image/png');
+  document.getElementById('btnJpg').classList.toggle('active', fmt==='image/jpeg');
+  qualityRow.classList.toggle('show', fmt==='image/jpeg');
+  // reconvert existing items with new format
+  if(state.items.length) reconvertAll();
+}
+
+qualitySlider.addEventListener('input', () => {
+  state.quality = qualitySlider.value/100;
+  qualityVal.textContent = qualitySlider.value + '%';
+});
+qualitySlider.addEventListener('change', () => {
+  if(state.items.length) reconvertAll();
+});
+
+document.querySelectorAll('#sizeRow .fmt-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('#sizeRow .fmt-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    state.maxSize = parseInt(btn.dataset.size, 10);
+    if(state.items.length) reconvertAll();
+  });
+});
+
+dropzone.addEventListener('click', () => fileInput.click());
+dropzone.addEventListener('dragover', e => { e.preventDefault(); dropzone.classList.add('drag'); });
+dropzone.addEventListener('dragleave', () => dropzone.classList.remove('drag'));
+dropzone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropzone.classList.remove('drag');
+  handleFiles(e.dataTransfer.files);
+});
+fileInput.addEventListener('change', e => {
+  handleFiles(e.target.files);
+  fileInput.value = '';
+});
+
+function handleFiles(fileList){
+  const files = Array.from(fileList).filter(f => f.type.startsWith('image/'));
+  if(!files.length) return;
+  stripSection.style.display = 'block';
+  files.forEach(file => {
+    const id = 'f' + Math.random().toString(36).slice(2,9);
+    const url = URL.createObjectURL(file);
+    const item = { id, file, name: file.name, url, status:'converting', blob:null, outName:'' };
+    state.items.push(item);
+    renderCard(item);
+    convertItem(item).catch(() => { item.status = 'error'; updateCard(item); });
+  });
+  updateCount();
+}
+
+function extFor(fmt){ return fmt === 'image/png' ? 'png' : 'jpg'; }
+
+function baseName(name){
+  const idx = name.lastIndexOf('.');
+  return idx > 0 ? name.slice(0, idx) : name;
+}
+
+function canvasToBlobAsync(canvas, format, quality){
+  return new Promise(resolve => canvas.toBlob(resolve, format, quality));
+}
+
+function renderToCanvas(img, w, h){
+  const canvas = document.createElement('canvas');
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext('2d');
+  if(state.format === 'image/jpeg'){
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0,0,w,h);
+  }
+  ctx.drawImage(img, 0, 0, w, h);
+  if(state.bgRemove){
+    removeBackgroundFromCanvas(canvas, state.bgTolerance);
+  }
+  return canvas;
+}
+
+function removeBackgroundFromCanvas(canvas, tolerance){
+  const ctx = canvas.getContext('2d');
+  const w = canvas.width, h = canvas.height;
+  if(w < 2 || h < 2) return;
+  const imgData = ctx.getImageData(0, 0, w, h);
+  const d = imgData.data;
+
+  // Sample the four corners (a few pixels in, to dodge anti-aliased edges) to guess the background color
+  const samplePoints = [
+    [2,2], [w-3,2], [2,h-3], [w-3,h-3]
+  ];
+  let r=0,g=0,b=0,n=0;
+  samplePoints.forEach(([x,y]) => {
+    const i = (y*w + x) * 4;
+    if(d[i+3] > 0){ r += d[i]; g += d[i+1]; b += d[i+2]; n++; }
+  });
+  if(n === 0) return;
+  r/=n; g/=n; b/=n;
+
+  // tolerance (5-90) -> distance threshold in RGB space
+  const hardCut = tolerance * 2.55;      // fully removed below this distance
+  const softCut = hardCut + 40;          // faded out between hardCut and softCut
+
+  for(let i=0; i<d.length; i+=4){
+    const dr = d[i]-r, dg = d[i+1]-g, db = d[i+2]-b;
+    const dist = Math.sqrt(dr*dr + dg*dg + db*db);
+    if(dist <= hardCut){
+      d[i+3] = 0;
+    } else if(dist < softCut){
+      const fade = (dist - hardCut) / (softCut - hardCut);
+      d[i+3] = Math.round(d[i+3] * fade);
+    }
+  }
+  ctx.putImageData(imgData, 0, 0);
+}
+
+async function convertItem(item){
+  const img = await loadImage(item.url);
+  let w = img.naturalWidth;
+  let h = img.naturalHeight;
+  if(state.maxSize && Math.max(w, h) > state.maxSize){
+    const scale = state.maxSize / Math.max(w, h);
+    w = Math.round(w * scale);
+    h = Math.round(h * scale);
+  }
+
+  let quality = state.quality;
+  let canvas = renderToCanvas(img, w, h);
+  let blob = await canvasToBlobAsync(canvas, state.format, quality);
+
+  if(state.capEnabled && blob){
+    let guard = 0;
+    // Step 1: for JPG, lower quality first
+    if(state.format === 'image/jpeg'){
+      while(blob.size > state.capBytes && quality > 0.15 && guard < 12){
+        quality -= 0.1;
+        blob = await canvasToBlobAsync(canvas, state.format, quality);
+        guard++;
+      }
+    }
+    // Step 2: if still too big (or PNG with no quality lever), shrink dimensions
+    guard = 0;
+    while(blob.size > state.capBytes && Math.max(w, h) > 120 && guard < 15){
+      w = Math.round(w * 0.85);
+      h = Math.round(h * 0.85);
+      canvas = renderToCanvas(img, w, h);
+      blob = await canvasToBlobAsync(canvas, state.format, quality);
+      guard++;
+    }
+  }
+
+  item.blob = blob;
+  item.outName = baseName(item.name) + '.' + extFor(state.format);
+  item.status = 'done';
+  item.capMissed = state.capEnabled && blob.size > state.capBytes;
+  updateCard(item);
+  updateDownloadAllState();
+}
+
+function loadImage(src){
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = reject;
+    img.src = src;
+  });
+}
+
+function reconvertAll(){
+  state.items.forEach(item => {
+    item.status = 'converting';
+    updateCard(item);
+    convertItem(item).catch(() => { item.status = 'error'; updateCard(item); });
+  });
+  downloadAllBtn.disabled = true;
+}
+
+function renderCard(item){
+  const card = document.createElement('div');
+  card.className = 'card';
+  card.id = item.id;
+  card.innerHTML = `
+    <span class="badge">${extFor(state.format).toUpperCase()}</span>
+    <img class="thumb" src="${item.url}" alt="">
+    <div class="meta">
+      <div class="fname">${escapeHtml(item.name)}</div>
+      <div class="fstatus" id="status-${item.id}"><span class="spinner"></span> بيتحول...</div>
+    </div>
+  `;
+  grid.appendChild(card);
+}
+
+function updateCard(item){
+  const badge = document.querySelector(`#${item.id} .badge`);
+  if(badge) badge.textContent = extFor(state.format).toUpperCase();
+  const statusEl = document.getElementById('status-' + item.id);
+  const card = document.getElementById(item.id);
+  if(!statusEl) return;
+  if(item.status === 'converting'){
+    statusEl.innerHTML = `<span class="spinner"></span> بيتحول...`;
+    statusEl.classList.remove('done');
+    const existingLink = card.querySelector('.dl-single');
+    if(existingLink) existingLink.remove();
+  } else if(item.status === 'done'){
+    const kb = (item.blob.size/1024).toFixed(0);
+    const origKb = item.file.size/1024;
+    const diffPct = Math.round((1 - item.blob.size/item.file.size) * 100);
+    let sizeNote = `${kb} كيلوبايت`;
+    if(diffPct > 0){
+      sizeNote += ` <span style="color:var(--muted);">(أصغر بـ ${diffPct}%)</span>`;
+    } else if(diffPct < 0){
+      sizeNote += ` <span style="color:var(--muted);">(أكبر بـ ${Math.abs(diffPct)}%)</span>`;
+    }
+    if(item.capMissed){
+      sizeNote += ` <span style="color:var(--red);">— لسه أكبر من الحد</span>`;
+    }
+    statusEl.innerHTML = `✓ جاهز — ${sizeNote}`;
+    statusEl.classList.add('done');
+    const thumbImg = card.querySelector('.thumb');
+    if(thumbImg) thumbImg.src = URL.createObjectURL(item.blob);
+    let link = card.querySelector('.dl-single');
+    if(!link){
+      link = document.createElement('a');
+      link.className = 'dl-single';
+      card.appendChild(link);
+    }
+    link.href = URL.createObjectURL(item.blob);
+    link.download = item.outName;
+    link.textContent = 'تنزيل';
+  } else if(item.status === 'error'){
+    statusEl.textContent = '✗ حصل خطأ';
+  }
+}
+
+function updateCount(){
+  countLabel.textContent = state.items.length + ' صورة';
+}
+
+function updateDownloadAllState(){
+  const allDone = state.items.length > 0 && state.items.every(i => i.status === 'done');
+  downloadAllBtn.disabled = !allDone;
+}
+
+downloadAllBtn.addEventListener('click', async () => {
+  downloadAllBtn.disabled = true;
+  downloadAllBtn.textContent = 'بيتجهز...';
+  const zip = new JSZip();
+  const usedNames = new Set();
+  state.items.forEach(item => {
+    if(item.status !== 'done') return;
+    let name = item.outName;
+    let i = 1;
+    while(usedNames.has(name)){
+      name = baseName(item.outName) + '-' + i + '.' + extFor(state.format);
+      i++;
+    }
+    usedNames.add(name);
+    zip.file(name, item.blob);
+  });
+  const content = await zip.generateAsync({type:'blob'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(content);
+  a.download = 'الصور-المحولة.zip';
+  a.click();
+  downloadAllBtn.textContent = 'تنزيل الكل (ZIP)';
+  downloadAllBtn.disabled = false;
+});
+
+clearBtn.addEventListener('click', () => {
+  state.items.forEach(i => URL.revokeObjectURL(i.url));
+  state.items = [];
+  grid.innerHTML = '';
+  stripSection.style.display = 'none';
+  downloadAllBtn.disabled = true;
+});
+
+function escapeHtml(str){
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+</script>
+</body>
+</html>
